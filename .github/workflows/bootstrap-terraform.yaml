@@ -1,0 +1,52 @@
+name: Bootstrap Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      storage_account_name:
+        description: "Azure Storage Account Name"
+        required: true
+      container_name:
+        description: "Azure Storage Account Container Name"
+        required: true
+      managed_identity_name:
+        description: "Azure Managed Identity Name"
+        required: true
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+    working-directory: ./bootstrap-terraform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: bootstrap-terraform
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup Terraform
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var "storage_account_name=${{ inputs.storage_account_name }}" -var "managed_identity_name=${{ inputs.managed_identity_name }}" -var "container_name=${{ inputs.container_name }}"
+
+      - name: Terraform Output
+        run: terraform output -json > terraform-output.json
+
+      - name: Echo Terraform Output
+        run: cat terraform-output.json
